@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- XennMap launcher mark: a compass needle over gentle waves. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Compass ring -->
+    <path
+        android:strokeColor="#38A8FF"
+        android:strokeWidth="3"
+        android:fillColor="#00000000"
+        android:pathData="M54,25 a29,29 0 1,0 0.01,0 Z" />
+
+    <!-- Needle: north (cyan) / south (blue) -->
+    <path
+        android:fillColor="#27D3C2"
+        android:pathData="M54,36 L60.5,54 L47.5,54 Z" />
+    <path
+        android:fillColor="#38A8FF"
+        android:pathData="M54,72 L60.5,54 L47.5,54 Z" />
+
+    <!-- Hub -->
+    <path
+        android:fillColor="#F5FAFF"
+        android:pathData="M54,51.5 a2.5,2.5 0 1,0 0.01,0 Z" />
+
+    <!-- Waves -->
+    <path
+        android:strokeColor="#27D3C2"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M36,80 q6,-5 12,0 t12,0 t12,0" />
+</vector>

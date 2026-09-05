@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">XennMap</string>
+    <string name="tagline">Your Offline Sea Map Companion</string>
+    <string name="navigation_assistance_notice">Navigation assistance only. XennMap does not replace official nautical charts, marine GPS equipment, or professional navigation systems. Always follow official charts, weather advisories, and safe boating practices.</string>
+    <string name="bathymetry_sample_notice">Depth layer shows available chart data for downloaded areas. XennMap does not measure live sea depth.</string>
+    <string name="map_attribution">Map data © OpenStreetMap contributors (ODbL) · Coastline: Natural Earth (public domain) · © MapLibre</string>
+</resources>

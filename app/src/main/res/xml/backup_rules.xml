@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Location history and saved places are private; keep them local-only. -->
+    <exclude domain="sharedpref" path="xenn_settings.preferences_pb" />
+</full-backup-content>
