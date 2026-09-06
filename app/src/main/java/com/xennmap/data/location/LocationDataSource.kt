@@ -54,7 +54,10 @@ class FusedLocationDataSource(context: Context) : LocationDataSource {
                 result.locations.forEach { location -> trySend(location.toRawFix(null)) }
             }
         }
-        client.requestLocationUpdates(request, callback, Looper.getMainLooper())
+        // Some devices/providers throw SecurityException here even with the
+        // manifest permission, e.g. when location is toggled off mid-session.
+        runCatching { client.requestLocationUpdates(request, callback, Looper.getMainLooper()) }
+            .onFailure { close(it) }
         awaitClose { client.removeLocationUpdates(callback) }
     }
 }
@@ -77,7 +80,9 @@ class AospLocationDataSource(private val locationManager: LocationManager) : Loc
             trySend(location.toRawFix(satelliteCount))
         }
 
-        locationManager.registerGnssStatusCallback(gnssCallback, mainHandler)
+        // registerGnssStatusCallback requires ACCESS_FINE_LOCATION — a physical
+        // device throws SecurityException if only coarse was granted.
+        runCatching { locationManager.registerGnssStatusCallback(gnssCallback, mainHandler) }
         try {
             locationManager.requestLocationUpdates(
                 LocationManager.GPS_PROVIDER,
@@ -86,6 +91,8 @@ class AospLocationDataSource(private val locationManager: LocationManager) : Loc
                 listener,
                 Looper.getMainLooper(),
             )
+        } catch (_: SecurityException) {
+            // Permission revoked mid-session — the flow simply ends.
         } catch (_: IllegalArgumentException) {
             // GPS provider unavailable on this device
         }

@@ -1,6 +1,9 @@
 package com.xennmap.data.location
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import com.xennmap.data.local.dao.UserLocationDao
 import com.xennmap.data.local.entity.UserLocationEntity
 import com.xennmap.di.ApplicationScope
@@ -41,10 +44,27 @@ class LocationRepositoryImpl @Inject constructor(
     private var lastHistoryWrite = 0L
 
     override fun start() {
-        if (consumers.incrementAndGet() > 1) return
+        consumers.incrementAndGet()
+
+        // PHYSICAL-DEVICE SAFETY: Dashboard/Tracks/etc. start GPS before the
+        // permission dialog is answered. Without this check the fused/AOSP
+        // requestLocationUpdates call throws SecurityException and crashes.
+        if (!hasLocationPermission()) {
+            collectJob?.cancel()
+            collectJob = null
+            _gpsState.update {
+                it.copy(isStarted = false, signal = GpsSignalState.NO_FIX, permissionDenied = true)
+            }
+            return
+        }
+
+        // Launch whenever there is no active job — also covers the case where
+        // permission was granted after earlier starts were denied.
         if (collectJob?.isActive == true) return
 
-        _gpsState.update { it.copy(isStarted = true, signal = GpsSignalState.ACQUIRING) }
+        _gpsState.update {
+            it.copy(isStarted = true, signal = GpsSignalState.ACQUIRING, permissionDenied = false)
+        }
         val source = if (playServicesAvailable(context)) fusedLocationDataSource else aospLocationDataSource
 
         collectJob = scope.launch {
@@ -68,8 +88,21 @@ class LocationRepositoryImpl @Inject constructor(
         if (consumers.decrementAndGet() > 0) return
         collectJob?.cancel()
         collectJob = null
-        _gpsState.update { it.copy(isStarted = false, signal = GpsSignalState.NO_FIX, satelliteCount = null) }
+        _gpsState.update {
+            it.copy(
+                isStarted = false,
+                signal = GpsSignalState.NO_FIX,
+                satelliteCount = null,
+                permissionDenied = !hasLocationPermission(),
+            )
+        }
     }
+
+    private fun hasLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
 
     private fun onRawFix(raw: RawFix) {
         val fix = GpsFix(

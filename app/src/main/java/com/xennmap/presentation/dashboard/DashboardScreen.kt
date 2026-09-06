@@ -97,6 +97,7 @@ fun DashboardScreen(
                     Text("Current GPS", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                     StatusChip(
                         label = when {
+                            ui.gps.permissionDenied -> "Permission needed"
                             ui.gps.fix == null -> "Searching"
                             else -> "Connected"
                         },
@@ -108,6 +109,12 @@ fun DashboardScreen(
                     Text(
                         "${GeoUtils.formatLatitude(fix.latitude)}  ${GeoUtils.formatLongitude(fix.longitude)}",
                         style = MaterialTheme.typography.bodyLarge,
+                    )
+                } else if (ui.gps.permissionDenied) {
+                    Text(
+                        "Location permission is off — open the Map tab and allow location to enable GPS.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = XennThemeExtended.colors.textSecondary,
                     )
                 } else {
                     Text(

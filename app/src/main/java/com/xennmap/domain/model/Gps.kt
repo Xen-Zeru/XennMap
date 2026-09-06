@@ -26,6 +26,8 @@ data class GpsState(
     val signal: GpsSignalState = GpsSignalState.NO_FIX,
     val satelliteCount: Int? = null,
     val isStarted: Boolean = false,
+    /** True when location permission is missing — the engine cannot even start. */
+    val permissionDenied: Boolean = false,
 ) {
     val hasFix: Boolean get() = fix != null && signal != GpsSignalState.NO_FIX && signal != GpsSignalState.ACQUIRING
 }
