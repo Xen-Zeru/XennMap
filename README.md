@@ -8,7 +8,7 @@ signal**. Plan your trip at home, sail offline, and let the chart depth follow y
 
 [![Platform](https://img.shields.io/badge/platform-Android-green)](https://www.android.com/)
 [![Kotlin](https://img.shields.io/badge/language-Kotlin-orange)](https://kotlinlang.org/)
-[![Release](https://img.shields.io/badge/release-v1.0.0-blue)](../../releases)
+[![Release](https://img.shields.io/badge/release-v1.0.1-blue)](../../releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 ---
