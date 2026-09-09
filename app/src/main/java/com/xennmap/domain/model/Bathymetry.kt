@@ -28,7 +28,11 @@ data class BathymetryData(
 )
 
 /** Chart depth sampled at a coordinate, plus how to label its source. */
-data class ChartDepth(val meters: Double, val downloaded: Boolean)
+data class ChartDepth(
+    val meters: Double,
+    val downloaded: Boolean,
+    val metadata: BathymetryMetadata? = null,
+)
 
 /** What the chart model knows about a selected coordinate. */
 enum class TerrainType {

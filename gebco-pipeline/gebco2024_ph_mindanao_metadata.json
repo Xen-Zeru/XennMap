@@ -1,0 +1,56 @@
+{
+  "id": "gebco2024_ph_mindanao",
+  "display_name": "Mindanao",
+  "description": "GEBCO 2024 bathymetry for Mindanao and surrounding waters",
+  "source": "GEBCO 2024 Grid",
+  "version": "202407",
+  "resolution_arcsec": 15,
+  "resolution_meters": 450,
+  "vertical_datum": "MSL",
+  "horizontal_datum": "WGS84",
+  "attribution": "GEBCO Compilation Group (2024) GEBCO 2024 Grid (doi:10.5285/1c44ce99-0a0d-5f4f-e063-7086abc0ea0f)",
+  "license": "Public Domain (GEBCO conditions of use apply \u2014 see https://www.gebco.net/)",
+  "coverage": {
+    "south": 4.0,
+    "west": 116.0,
+    "north": 9.0,
+    "east": 127.0
+  },
+  "warning": "Not for navigation \u2014 use official nautical charts. Charted depth from GEBCO 2024 Grid (15 arc-sec resolution, ~450m at Philippine latitudes). Vertical datum: MSL. Not for navigation \u2014 use official nautical charts.",
+  "mbtiles": {
+    "file": "gebco2024_ph_mindanao.mbtiles",
+    "size_bytes": 7311360,
+    "sha256": "9298257bde17a09bd23922d595cd369ac4d4842139758a45e2524ba7a3cfee29",
+    "zoom_levels": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "total_tiles": 9932
+  },
+  "mbtiles_zip": {
+    "file": "gebco2024_ph_mindanao_mbtiles.zip",
+    "size_bytes": 985864,
+    "sha256": "8370772632168623d8709a220012c6635ebb6ca57593e0968fb80465376610a3"
+  },
+  "binary_grid_zip": {
+    "file": "gebco2024_ph_mindanao_grid.zip",
+    "size_bytes": 19010,
+    "sha256": "0fcf7310e012e2a5094076e0cfa7c11de72a958edbd02213bab0c39b1c22a263"
+  },
+  "binary_grid": {
+    "tile_count": 55,
+    "tile_size_bytes": 115200,
+    "total_uncompressed_bytes": 6336000
+  }
+}

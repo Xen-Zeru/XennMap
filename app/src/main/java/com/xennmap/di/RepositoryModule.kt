@@ -1,7 +1,7 @@
 package com.xennmap.di
 
 import com.xennmap.data.location.LocationRepositoryImpl
-import com.xennmap.data.maps.BathymetryRepositoryImpl
+import com.xennmap.data.maps.bathymetry.repository.RealBathymetryRepositoryImpl
 import com.xennmap.data.preferences.PreferencesRepositoryImpl
 import com.xennmap.data.repository.OfflineRegionRepositoryImpl
 import com.xennmap.data.repository.SavedPlaceRepositoryImpl
@@ -44,5 +44,5 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindBathymetryRepository(impl: BathymetryRepositoryImpl): BathymetryRepository
+    abstract fun bindBathymetryRepository(impl: RealBathymetryRepositoryImpl): BathymetryRepository
 }

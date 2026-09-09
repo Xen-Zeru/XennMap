@@ -1,0 +1,56 @@
+{
+  "id": "gebco2024_ph_visayas",
+  "display_name": "Visayas",
+  "description": "GEBCO 2024 bathymetry for Visayas region",
+  "source": "GEBCO 2024 Grid",
+  "version": "202407",
+  "resolution_arcsec": 15,
+  "resolution_meters": 450,
+  "vertical_datum": "MSL",
+  "horizontal_datum": "WGS84",
+  "attribution": "GEBCO Compilation Group (2024) GEBCO 2024 Grid (doi:10.5285/1c44ce99-0a0d-5f4f-e063-7086abc0ea0f)",
+  "license": "Public Domain (GEBCO conditions of use apply \u2014 see https://www.gebco.net/)",
+  "coverage": {
+    "south": 8.0,
+    "west": 121.0,
+    "north": 12.5,
+    "east": 127.0
+  },
+  "warning": "Not for navigation \u2014 use official nautical charts. Charted depth from GEBCO 2024 Grid (15 arc-sec resolution, ~450m at Philippine latitudes). Vertical datum: MSL. Not for navigation \u2014 use official nautical charts.",
+  "mbtiles": {
+    "file": "gebco2024_ph_visayas.mbtiles",
+    "size_bytes": 3874816,
+    "sha256": "06c4833ea27963718f8222c4e4ed081d84939cd507a0fc493b73363a8423e30c",
+    "zoom_levels": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "total_tiles": 4959
+  },
+  "mbtiles_zip": {
+    "file": "gebco2024_ph_visayas_mbtiles.zip",
+    "size_bytes": 735991,
+    "sha256": "6c14daba94a50161165f2d50626f73704804489c6fa53b53929d7fd1310ea63a"
+  },
+  "binary_grid_zip": {
+    "file": "gebco2024_ph_visayas_grid.zip",
+    "size_bytes": 10434,
+    "sha256": "9c66327f1d8a66215c45fb8ac9b5d349dd060b12fce8d16bfee3e475aeba5133"
+  },
+  "binary_grid": {
+    "tile_count": 30,
+    "tile_size_bytes": 115200,
+    "total_uncompressed_bytes": 3456000
+  }
+}

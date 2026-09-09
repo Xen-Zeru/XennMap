@@ -1,21 +1,14 @@
 package com.xennmap.presentation.map
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.ui.graphics.toArgb
-import com.xennmap.domain.model.BathymetryData
+import com.xennmap.data.maps.bathymetry.source.BathymetryMbtilesProvider
 import com.xennmap.domain.model.GpsFix
 import com.xennmap.domain.model.MapLayers
 import com.xennmap.domain.model.PlaceCategory
 import com.xennmap.domain.model.SavedPlace
 import com.xennmap.domain.model.TrackPoint
-import com.xennmap.ui.theme.BathyDarkRamp
-import com.xennmap.ui.theme.BathyLightRamp
-import com.xennmap.ui.theme.BathyContourDark
-import com.xennmap.ui.theme.BathyContourLight
-import com.xennmap.ui.theme.MapLandDark
-import com.xennmap.ui.theme.MapLandLight
-import com.xennmap.ui.theme.MapLandOutlineDark
-import com.xennmap.ui.theme.MapLandOutlineLight
 import com.xennmap.ui.theme.Primary
 import com.xennmap.ui.theme.Secondary
 import com.xennmap.ui.theme.Warning
@@ -26,8 +19,11 @@ import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.layers.RasterLayer
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.android.style.sources.RasterSource
+import java.io.File
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -44,7 +40,6 @@ data class PresetOutline(
 data class MapRenderState(
     val dark: Boolean,
     val coastlineJson: String?,
-    val bathymetry: BathymetryData?,
     val layers: MapLayers,
     val places: List<SavedPlace>,
     val selectedPlaceId: Long?,
@@ -55,11 +50,13 @@ data class MapRenderState(
     /** Coordinate the user picked by tapping/long-pressing the map (lat to lng). */
     val selectedPoint: Pair<Double, Double>? = null,
     val presetOutline: PresetOutline? = null,
+    /** ID of the downloaded bathymetry region for real depth rendering */
+    val bathymetryRegionId: String? = null,
 )
 
 /**
  * Installs and updates all runtime style layers of the XennMap ocean style:
- * land, bathymetry bands/contours/labels, saved places, track, navigation line
+ * land, bathymetry raster overlay, saved places, track, navigation line
  * and the heading-aware location marker. All data flows through GeoJSON string
  * updates so nothing needs an internet connection after startup.
  */
@@ -68,7 +65,6 @@ class MapRenderer(private val context: Context) {
     private var style: org.maplibre.android.maps.Style? = null
     private var dark: Boolean = true
     private var latest: MapRenderState? = null
-    private var bathyFirstApplied = false
 
     /** Fired once when the depth grid first reaches the renderer. */
     var onBathymetryFirstApplied: (() -> Unit)? = null
@@ -88,21 +84,12 @@ class MapRenderer(private val context: Context) {
     fun apply(state: MapRenderState) {
         latest = state
         val style = style ?: return
-        if (state.bathymetry != null && !bathyFirstApplied) {
-            bathyFirstApplied = true
-            android.util.Log.i(
-                "XennMap",
-                "apply bathy: fill=${state.bathymetry.fillGeoJson.length} contour=${state.bathymetry.contourGeoJson.length}",
-            )
-            // The style was loaded before the depth grid finished generating, so
-            // low-zoom tiles were built empty and setGeoJson does not reliably
-            // refresh them — trigger a one-shot style reload with data in place.
-            // The old style object is invalid the moment a newer load starts,
-            // so drop it; onStyleLoaded will re-apply the latest state.
-            invalidateStyle()
-            onBathymetryFirstApplied?.invoke()
-            return
+
+        // Add real bathymetry RasterSource if region is available
+        if (state.bathymetryRegionId != null) {
+            addRealBathymetrySource(style, state.bathymetryRegionId!!)
         }
+
         runCatching {
             updateSources(style, state)
             updateVisibility(style, state)
@@ -123,16 +110,11 @@ class MapRenderer(private val context: Context) {
         PlaceCategory.entries.forEach { category ->
             style.addImage(iconNameFor(category), MarkerBitmapFactory.placeIcon(context, category))
         }
-        for (band in 0..6) {
-            val text = bandLabel(band)
-            style.addImage("depth-label-$band", MarkerBitmapFactory.depthLabel(context, text, dark))
-        }
     }
 
     private fun emptySources(style: org.maplibre.android.maps.Style) {
         listOf(
-            SRC_LAND, SRC_BATHY_FILL, SRC_BATHY_CONTOUR, SRC_BATHY_LABELS,
-            SRC_PLACES, SRC_PLACE_SELECTED, SRC_TRACK, SRC_TRACK_POINTS,
+            SRC_LAND, SRC_PLACES, SRC_PLACE_SELECTED, SRC_TRACK, SRC_TRACK_POINTS,
             SRC_NAV, SRC_ACCURACY, SRC_LOCATION, SRC_SELECTED, SRC_PRESET,
         ).forEach { id ->
             runCatching { style.addSource(GeoJsonSource(id, EMPTY_COLLECTION)) }
@@ -140,56 +122,17 @@ class MapRenderer(private val context: Context) {
     }
 
     private fun addLayers(style: org.maplibre.android.maps.Style, dark: Boolean) {
-        val bathyRamp = if (dark) BathyDarkRamp else BathyLightRamp
-        val contour = if (dark) BathyContourDark else BathyContourLight
-        val land = if (dark) MapLandDark else MapLandLight
-        val landOutline = if (dark) MapLandOutlineDark else MapLandOutlineLight
         val primary = Primary.toArgb()
         val secondary = Secondary.toArgb()
         val warning = Warning.toArgb()
         val white = android.graphics.Color.WHITE
 
-        fun bandMatch(): Expression {
-            val builder = StringBuilder("""["match", ["get", "band"]""")
-            bathyRamp.forEachIndexed { index, color ->
-                builder.append(", $index, \"").append(hex(color)).append("\"")
-            }
-            builder.append(", \"").append(hex(bathyRamp.last())).append("\"]")
-            return Expression.raw(builder.toString())
-        }
-
-        style.addLayer(
-            FillLayer(L_BATHY_FILL, SRC_BATHY_FILL).apply {
-                setProperties(
-                    PropertyFactory.fillColor(bandMatch()),
-                    PropertyFactory.fillOpacity(0.92f),
-                    PropertyFactory.fillAntialias(true),
-                )
-            }
-        )
-        style.addLayer(
-            LineLayer(L_BATHY_CONTOUR, SRC_BATHY_CONTOUR).apply {
-                setProperties(
-                    PropertyFactory.lineColor(contour.toArgb()),
-                    PropertyFactory.lineWidth(1.4f),
-                    PropertyFactory.lineOpacity(0.75f),
-                )
-            }
-        )
+        // Land layer (coastline from GeoJSON)
         style.addLayer(
             FillLayer(L_LAND, SRC_LAND).apply {
                 setProperties(
-                    PropertyFactory.fillColor(land.toArgb()),
+                    PropertyFactory.fillColor(if (dark) 0xFF0A1D2E.toInt() else 0xFFE8F4FD.toInt()),
                     PropertyFactory.fillOpacity(1f),
-                )
-            }
-        )
-        style.addLayer(
-            LineLayer(L_LAND_OUTLINE, SRC_LAND).apply {
-                setProperties(
-                    PropertyFactory.lineColor(landOutline.toArgb()),
-                    PropertyFactory.lineWidth(1f),
-                    PropertyFactory.lineOpacity(0.9f),
                 )
             }
         )
@@ -238,6 +181,7 @@ class MapRenderer(private val context: Context) {
                     PropertyFactory.lineWidth(4f),
                     PropertyFactory.lineDasharray(arrayOf(2.2f, 1.6f)),
                     PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                    PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
                     PropertyFactory.lineOpacity(0.95f),
                 )
             }
@@ -273,18 +217,9 @@ class MapRenderer(private val context: Context) {
             }
         )
         style.addLayer(
-            SymbolLayer(L_BATHY_LABELS, SRC_BATHY_LABELS).apply {
-                setProperties(
-                    PropertyFactory.iconImage(Expression.raw("[\"get\", \"icon\"]")),
-                    PropertyFactory.iconAllowOverlap(false),
-                    PropertyFactory.iconSize(1f),
-                )
-            }
-        )
-        style.addLayer(
             FillLayer(L_ACCURACY, SRC_ACCURACY).apply {
                 setProperties(
-                    PropertyFactory.fillColor(primary),
+                    PropertyFactory.fillColor(Primary.toArgb()),
                     PropertyFactory.fillOpacity(0.16f),
                 )
             }
@@ -293,7 +228,7 @@ class MapRenderer(private val context: Context) {
             CircleLayer(L_LOC_DOT, SRC_LOCATION).apply {
                 setProperties(
                     PropertyFactory.circleRadius(5.5f),
-                    PropertyFactory.circleColor(primary),
+                    PropertyFactory.circleColor(Primary.toArgb()),
                     PropertyFactory.circleStrokeColor(white),
                     PropertyFactory.circleStrokeWidth(2f),
                 )
@@ -313,13 +248,40 @@ class MapRenderer(private val context: Context) {
         )
     }
 
+    // ------------------------------------------------------------------ raster bathymetry
+
+    /** Add real bathymetry RasterSource from downloaded MBTiles. */
+    private fun addRealBathymetrySource(style: org.maplibre.android.maps.Style, regionId: String) {
+        val path = File(context.filesDir, "bathymetry/mbtiles/$regionId.mbtiles")
+        if (!path.exists()) return
+
+        // Replace the placeholder source with the real RasterSource
+        runCatching {
+            val oldSource = style.getSource(SRC_BATHY_RASTER)
+            oldSource?.let { style.removeSource(it.id) }
+        }
+
+        val uri = "mbtiles://${path.absolutePath}"
+        val rasterSource = RasterSource(SRC_BATHY_RASTER, uri, 256)
+        style.addSource(rasterSource)
+
+        // Add RasterLayer with baked bathymetry colors (no color ramp needed - colors are baked into RGBA tiles)
+        if (style.getLayer(L_BATHY_RASTER) == null) {
+            val rasterLayer = RasterLayer(L_BATHY_RASTER, SRC_BATHY_RASTER).apply {
+                setProperties(
+                    PropertyFactory.rasterOpacity(0.85f),
+                )
+                minZoom = 0f
+                maxZoom = 13f
+            }
+            style.addLayer(rasterLayer)
+        }
+    }
+
     // ----------------------------------------------------------------- update
 
     private fun updateSources(style: org.maplibre.android.maps.Style, state: MapRenderState) {
         setGeoJson(style, SRC_LAND, state.coastlineJson)
-        setGeoJson(style, SRC_BATHY_FILL, state.bathymetry?.fillGeoJson)
-        setGeoJson(style, SRC_BATHY_CONTOUR, state.bathymetry?.contourGeoJson)
-        setGeoJson(style, SRC_BATHY_LABELS, state.bathymetry?.labelGeoJson)
         setGeoJson(style, SRC_PLACES, placesCollection(state.places))
         // The ringed indicator sits on the tap-selected place, or on the active
         // navigation destination when a steering session is running.
@@ -370,9 +332,12 @@ class MapRenderer(private val context: Context) {
     }
 
     private fun updateVisibility(style: org.maplibre.android.maps.Style, state: MapRenderState) {
-        setVisible(style, L_BATHY_FILL, state.layers.bathymetryEnabled)
-        setVisible(style, L_BATHY_CONTOUR, state.layers.bathymetryEnabled && state.layers.contoursEnabled)
-        setVisible(style, L_BATHY_LABELS, state.layers.bathymetryEnabled && state.layers.depthLabelsEnabled)
+        // Bathymetry raster visibility
+        val hasRealBathy = state.bathymetryRegionId != null
+        val bathyEnabled = state.layers.bathymetryEnabled
+
+        setVisible(style, L_BATHY_RASTER, bathyEnabled && hasRealBathy)
+        setVisible(style, L_LAND, true)
         setVisible(style, L_PLACES, state.layers.savedPlacesVisible)
         setVisible(style, L_PLACE_SELECTED, state.selectedPlaceId != null || state.navActive)
         setVisible(style, L_TRACK, state.trackPoints.isNotEmpty())
@@ -503,9 +468,6 @@ class MapRenderer(private val context: Context) {
 
     companion object {
         const val SRC_LAND = "xenn-land"
-        const val SRC_BATHY_FILL = "xenn-bathy-fill"
-        const val SRC_BATHY_CONTOUR = "xenn-bathy-contour"
-        const val SRC_BATHY_LABELS = "xenn-bathy-labels"
         const val SRC_PLACES = "xenn-places"
         const val SRC_PLACE_SELECTED = "xenn-place-selected"
         const val SRC_TRACK = "xenn-track"
@@ -515,11 +477,10 @@ class MapRenderer(private val context: Context) {
         const val SRC_LOCATION = "xenn-location"
         const val SRC_SELECTED = "xenn-selected"
         const val SRC_PRESET = "xenn-preset"
+        const val SRC_BATHY_RASTER = "xenn-bathy-raster"
 
-        const val L_BATHY_FILL = "xenn-l-bathy-fill"
-        const val L_BATHY_CONTOUR = "xenn-l-bathy-contour"
         const val L_LAND = "xenn-l-land"
-        const val L_LAND_OUTLINE = "xenn-l-land-outline"
+        const val L_BATHY_RASTER = "xenn-l-bathy-raster"
         const val L_PRESET_FILL = "xenn-l-preset-fill"
         const val L_PRESET_LINE = "xenn-l-preset-line"
         const val L_TRACK = "xenn-l-track"
@@ -527,11 +488,11 @@ class MapRenderer(private val context: Context) {
         const val L_NAV = "xenn-l-nav"
         const val L_PLACES = "xenn-l-places"
         const val L_PLACE_SELECTED = "xenn-l-place-selected"
-        const val L_BATHY_LABELS = "xenn-l-bathy-labels"
         const val L_ACCURACY = "xenn-l-accuracy"
         const val L_LOC_DOT = "xenn-l-loc-dot"
         const val L_LOC_ARROW = "xenn-l-loc-arrow"
         const val L_SELECTED = "xenn-l-selected"
+        const val L_PRESET = "xenn-l-preset"
 
         const val ICON_ARROW = "xenn-arrow"
         const val ICON_CROSSHAIR = "xenn-crosshair"

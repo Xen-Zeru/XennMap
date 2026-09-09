@@ -1,0 +1,56 @@
+{
+  "id": "gebco2024_ph_luzon",
+  "display_name": "Luzon",
+  "description": "GEBCO 2024 bathymetry for Luzon and surrounding waters",
+  "source": "GEBCO 2024 Grid",
+  "version": "202407",
+  "resolution_arcsec": 15,
+  "resolution_meters": 450,
+  "vertical_datum": "MSL",
+  "horizontal_datum": "WGS84",
+  "attribution": "GEBCO Compilation Group (2024) GEBCO 2024 Grid (doi:10.5285/1c44ce99-0a0d-5f4f-e063-7086abc0ea0f)",
+  "license": "Public Domain (GEBCO conditions of use apply \u2014 see https://www.gebco.net/)",
+  "coverage": {
+    "south": 12.0,
+    "west": 116.0,
+    "north": 21.5,
+    "east": 127.0
+  },
+  "warning": "Not for navigation \u2014 use official nautical charts. Charted depth from GEBCO 2024 Grid (15 arc-sec resolution, ~450m at Philippine latitudes). Vertical datum: MSL. Not for navigation \u2014 use official nautical charts.",
+  "mbtiles": {
+    "file": "gebco2024_ph_luzon.mbtiles",
+    "size_bytes": 14655488,
+    "sha256": "0484580cc03a0a14cc31ed779eef43eb96c28288148d53bcaa5f2f12beaac49f",
+    "zoom_levels": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "total_tiles": 19393
+  },
+  "mbtiles_zip": {
+    "file": "gebco2024_ph_luzon_mbtiles.zip",
+    "size_bytes": 1127919,
+    "sha256": "c0b84dad7bcf33d4592085c99c4130dbeb8b1d64d130a57bc66a7db761b9b4eb"
+  },
+  "binary_grid_zip": {
+    "file": "gebco2024_ph_luzon_grid.zip",
+    "size_bytes": 37374,
+    "sha256": "595cf5f8cc7e49a3c82e8a741d65d8ec3b7d1830ecd89933bca1df7b2018ff1b"
+  },
+  "binary_grid": {
+    "tile_count": 110,
+    "tile_size_bytes": 115200,
+    "total_uncompressed_bytes": 12672000
+  }
+}

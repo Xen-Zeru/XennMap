@@ -7,6 +7,8 @@ import com.xennmap.data.navigation.NavigationSession
 import com.xennmap.data.tracking.TrackingController
 import com.xennmap.domain.model.AppSettings
 import com.xennmap.domain.model.BathymetryData
+import com.xennmap.domain.model.BathymetryMetadata
+import com.xennmap.domain.model.DepthResult
 import com.xennmap.domain.model.GpsState
 import com.xennmap.domain.model.MapLayers
 import com.xennmap.domain.model.NavigationPlan
@@ -25,7 +27,6 @@ import com.xennmap.domain.repository.SavedPlaceRepository
 import com.xennmap.domain.repository.TrackRepository
 import com.xennmap.domain.usecase.GetDepthAtPositionUseCase
 import com.xennmap.domain.usecase.PlanNavigationUseCase
-import com.xennmap.domain.repository.OfflineRegionRepository
 import com.xennmap.presentation.common.AreaPickerSession
 import com.xennmap.presentation.common.AreaPickerState
 import com.xennmap.presentation.common.DownloadBounds
@@ -64,12 +65,10 @@ class MapViewModel @Inject constructor(
     val commandBus: MapCommandBus,
     private val planNavigation: PlanNavigationUseCase,
     private val getDepthAtPosition: GetDepthAtPositionUseCase,
-    private val offlineRegionRepository: OfflineRegionRepository,
-    private val areaPickerSession: AreaPickerSession,
 ) : ViewModel() {
 
     /** Framing session for the custom download area (drives the map overlay). */
-    val areaPickerState: StateFlow<AreaPickerState?> = areaPickerSession.state
+    val areaPickerState: StateFlow<AreaPickerState?> = AreaPickerSession().state
 
     data class MarkTarget(val latitude: Double, val longitude: Double)
 
@@ -83,6 +82,7 @@ class MapViewModel @Inject constructor(
         val longitude: Double,
         val terrain: TerrainType? = null,
         val depthMeters: Double? = null,
+        val depthMetadata: BathymetryMetadata? = null,
         val inDownloaded: Boolean = false,
     )
 
@@ -207,7 +207,7 @@ class MapViewModel @Inject constructor(
                 if (gps.fix != null && now - lastSampleAt >= DEPTH_SAMPLE_INTERVAL_MS) {
                     lastSampleAt = now
                     val depth = runCatching { getDepthAtPosition(gps.fix) }.getOrNull()
-                    val downloaded = isInsideDownloaded(gps.fix.latitude, gps.fix.longitude)
+                    val downloaded = isInsidePhilippinesCoverage(gps.fix.latitude, gps.fix.longitude)
                     _uiState.update { it.copy(depthMeters = depth, depthDownloaded = downloaded) }
                 }
             }
@@ -324,6 +324,51 @@ class MapViewModel @Inject constructor(
         _uiState.update { it.copy(markTarget = null, editingPlace = null, markDepth = null) }
     }
 
+    fun startEdit(place: SavedPlace) {
+        _uiState.update { it.copy(editingPlace = place, placeSheetVisible = false) }
+    }
+
+    fun savePlace(name: String, category: PlaceCategory, note: String) {
+        val editing = _uiState.value.editingPlace
+        val target = _uiState.value.markTarget
+        viewModelScope.launch {
+            if (editing != null) {
+                savedPlaceRepository.save(
+                    editing.copy(name = name, category = category, note = note)
+                )
+                _uiState.update { it.copy(message = "\"$name\" updated", editingPlace = null) }
+            } else if (target != null) {
+                val now = System.currentTimeMillis()
+                savedPlaceRepository.save(
+                    SavedPlace(
+                        name = name,
+                        latitude = target.latitude,
+                        longitude = target.longitude,
+                        category = category,
+                        note = note,
+                        createdAt = now,
+                        updatedAt = now,
+                    )
+                )
+                // Duplicate-coordinate edge case: saving is allowed, but the
+                // user is told that something already exists at this spot.
+                val nearDuplicate = _uiState.value.places.any { existing ->
+                    GeoUtils.distanceMeters(
+                        target.latitude, target.longitude,
+                        existing.latitude, existing.longitude,
+                    ) <= DUPLICATE_RADIUS_METERS
+                }
+                _uiState.update {
+                    it.copy(
+                        message = "\"$name\" saved" +
+                            if (nearDuplicate) " — another saved place is within 10 m of this point" else "",
+                        markTarget = null,
+                    )
+                }
+            }
+        }
+    }
+
     // ------------------------------------------------------- selected point
 
     /** Tap / long-press on open water or land: preview the point before saving. */
@@ -336,12 +381,36 @@ class MapViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
-            val terrain = runCatching { bathymetryRepository.classifyAt(latitude, longitude) }
-                .getOrNull() ?: TerrainType.OUTSIDE
-            val depth = if (terrain == TerrainType.SEA || terrain == TerrainType.COASTAL) {
-                runCatching { getDepthAtPosition(latitude, longitude) }.getOrNull()
-            } else null
-            val downloaded = isInsideDownloaded(latitude, longitude)
+            val depthResult = runCatching { bathymetryRepository.depthResultAt(latitude, longitude) }
+                .getOrElse { DepthResult.Error(it.message ?: "Unknown error") }
+
+            val terrain: TerrainType
+            val depth: Double?
+            val metadata: BathymetryMetadata?
+            when (depthResult) {
+                is DepthResult.Success -> {
+                    terrain = depthResult.terrain
+                    depth = depthResult.meters
+                    metadata = depthResult.metadata
+                }
+                is DepthResult.Land -> {
+                    terrain = TerrainType.LAND
+                    depth = null
+                    metadata = null
+                }
+                is DepthResult.NoCoverage, is DepthResult.NoData -> {
+                    terrain = TerrainType.OUTSIDE
+                    depth = null
+                    metadata = null
+                }
+                is DepthResult.Error -> {
+                    terrain = TerrainType.OUTSIDE
+                    depth = null
+                    metadata = null
+                }
+            }
+
+            val downloaded = isInsidePhilippinesCoverage(latitude, longitude)
             _uiState.update { state ->
                 val point = state.selectedPoint
                 if (point != null && point.latitude == latitude && point.longitude == longitude) {
@@ -349,6 +418,7 @@ class MapViewModel @Inject constructor(
                         selectedPoint = point.copy(
                             terrain = terrain,
                             depthMeters = depth,
+                            depthMetadata = metadata,
                             inDownloaded = downloaded,
                         )
                     )
@@ -393,118 +463,23 @@ class MapViewModel @Inject constructor(
         selectPoint(latitude, longitude)
     }
 
-    /** Chart depth + whether the coordinate sits inside a downloaded offline area. */
+    /** Chart depth + whether the coordinate sits inside Philippine GEBCO coverage. */
     private suspend fun chartDepthAt(latitude: Double, longitude: Double): ChartDepth? {
-        val meters = runCatching { getDepthAtPosition(latitude, longitude) }.getOrNull() ?: return null
-        return ChartDepth(meters, isInsideDownloaded(latitude, longitude))
-    }
-
-    private fun isInsideDownloaded(latitude: Double, longitude: Double): Boolean =
-        offlineRegionRepository.downloadedBounds.value.any { region ->
-            latitude in region.south..region.north && longitude in region.west..region.east
-        }
-
-    // ------------------------------------------------- custom download area
-
-    fun startAreaPicker() {
-        areaPickerSession.start(initialBounds = null, regionName = "Custom area")
-    }
-
-    fun startAreaPickerFor(region: OfflineRegion) {
-        areaPickerSession.start(
-            initialBounds = DownloadBounds(region.south, region.west, region.north, region.east),
-            regionName = region.name,
-            editingRegionId = region.id,
-        )
-    }
-
-    fun cancelAreaPicker() {
-        areaPickerSession.end()
-    }
-
-    /** Confirms the framed custom area and starts the (online) download. */
-    fun confirmAreaDownload(bounds: DownloadBounds) {
-        val session = areaPickerSession.state.value ?: return
-        val areaKm2 = ((bounds.east - bounds.west) * 111.0 * (bounds.north - bounds.south) * 111.0)
-        val preset = RegionPreset(
-            id = "custom-${System.currentTimeMillis()}",
-            name = session.regionName.ifBlank { "Custom area" },
-            description = "Custom downloaded area",
-            south = bounds.south,
-            west = bounds.west,
-            north = bounds.north,
-            east = bounds.east,
-            estimatedSizeMb = (areaKm2 * 0.02).toInt().coerceIn(20, 4_000),
-            minZoom = 6,
-            maxZoom = 11,
-        )
-        session.editingRegionId?.let { regionId ->
-            offlineRegionRepository.downloadedBounds.value.firstOrNull { it.id == regionId }?.let { old ->
-                viewModelScope.launch { runCatching { offlineRegionRepository.delete(old) } }
-            }
-        }
-        viewModelScope.launch {
-            runCatching {
-                offlineRegionRepository.download(preset, _uiState.value.settings.tileStyleUrl)
-            }
-        }
-        areaPickerSession.end()
-        _uiState.update {
-            it.copy(
-                message = "Downloading \"${preset.name}\" — needs mobile data or Wi-Fi",
-                presetOutline = null,
+        val depthResult = runCatching { bathymetryRepository.depthResultAt(latitude, longitude) }
+            .getOrElse { DepthResult.Error(it.message ?: "Unknown error") }
+        return when (depthResult) {
+            is DepthResult.Success -> ChartDepth(
+                depthResult.meters,
+                isInsidePhilippinesCoverage(latitude, longitude),
+                depthResult.metadata,
             )
+            is DepthResult.Land, is DepthResult.NoCoverage, is DepthResult.NoData, is DepthResult.Error -> null
         }
     }
 
-    /** Draws the outline of a preset download area on the map. */
-    fun showPresetOutline(south: Double, west: Double, north: Double, east: Double, name: String) {
-        _uiState.update { it.copy(presetOutline = PresetOutline(south, west, north, east, name)) }
-    }
-
-    fun startEdit(place: SavedPlace) {
-        _uiState.update { it.copy(editingPlace = place, placeSheetVisible = false) }
-    }
-
-    fun savePlace(name: String, category: PlaceCategory, note: String) {
-        val editing = _uiState.value.editingPlace
-        val target = _uiState.value.markTarget
-        viewModelScope.launch {
-            if (editing != null) {
-                savedPlaceRepository.save(
-                    editing.copy(name = name, category = category, note = note)
-                )
-                _uiState.update { it.copy(message = "\"$name\" updated", editingPlace = null) }
-            } else if (target != null) {
-                val now = System.currentTimeMillis()
-                savedPlaceRepository.save(
-                    SavedPlace(
-                        name = name,
-                        latitude = target.latitude,
-                        longitude = target.longitude,
-                        category = category,
-                        note = note,
-                        createdAt = now,
-                        updatedAt = now,
-                    )
-                )
-                // Duplicate-coordinate edge case: saving is allowed, but the
-                // user is told that something already exists at this spot.
-                val nearDuplicate = _uiState.value.places.any { existing ->
-                    GeoUtils.distanceMeters(
-                        target.latitude, target.longitude,
-                        existing.latitude, existing.longitude,
-                    ) <= DUPLICATE_RADIUS_METERS
-                }
-                _uiState.update {
-                    it.copy(
-                        message = "\"$name\" saved" +
-                            if (nearDuplicate) " — another saved place is within 10 m of this point" else "",
-                        markTarget = null,
-                    )
-                }
-            }
-        }
+    private fun isInsidePhilippinesCoverage(latitude: Double, longitude: Double): Boolean {
+        // Philippine EEZ / GEBCO coverage: roughly 4°N-21.5°N, 116°E-127°E
+        return latitude in 4.0..21.5 && longitude in 116.0..127.0
     }
 
     // --------------------------------------------------------------- layers

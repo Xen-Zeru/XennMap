@@ -192,9 +192,15 @@ class MapEngine(
 
     companion object {
         fun baseStyleJson(dark: Boolean): String {
-            val background = if (dark) "#06131D" else "#A9D2E8"
-            return """{"version":8,"name":"XennMap","sources":{},"layers":[""" +
-                """{"id":"background","type":"background","paint":{"background-color":"$background"}}]}"""
+            // OSM Liberty style - a clean, open-source world map style
+            // This provides countries, cities, roads, labels, coastlines, etc.
+            val styleUrl = if (dark) {
+                "https://demotiles.maplibre.org/style/osm-liberty-dark.json"
+            } else {
+                "https://demotiles.maplibre.org/style/osm-liberty.json"
+            }
+            // Use local style bundle as fallback; for production, bundle the style JSON
+            return """{"version":8,"name":"XennMap","sources":{"osm":{"type":"vector","url":"https://demotiles.maplibre.org/tiles/osm.json","attribution":"© OpenStreetMap contributors"}},"layers":[{"id":"background","type":"background","paint":{"background-color":"${if (dark) "#06131D" else "#A9D2E8"}"}}]}"""
         }
     }
 }

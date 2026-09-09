@@ -2,6 +2,7 @@ package com.xennmap.domain.repository
 
 import com.xennmap.domain.model.AppSettings
 import com.xennmap.domain.model.BathymetryData
+import com.xennmap.domain.model.DepthResult
 import kotlinx.coroutines.flow.Flow
 
 /** User preferences (DataStore) + bathymetry data access. */
@@ -47,6 +48,12 @@ interface BathymetryRepository {
      * This is depth FROM THE DATASET, never a live phone measurement.
      */
     suspend fun depthAt(latitude: Double, longitude: Double): Double?
+
+    /**
+     * Full depth result with metadata at the given position.
+     * Returns Success with metadata, or NoCoverage/NoData/Land/Error as appropriate.
+     */
+    suspend fun depthResultAt(latitude: Double, longitude: Double): DepthResult
 
     /** Classifies a coordinate as sea / coastal / land / outside chart coverage. */
     suspend fun classifyAt(latitude: Double, longitude: Double): com.xennmap.domain.model.TerrainType

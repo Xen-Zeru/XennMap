@@ -3,6 +3,8 @@ package com.xennmap.data.maps
 import android.content.Context
 import com.xennmap.domain.model.BathymetryData
 import com.xennmap.domain.model.BathymetryDataset
+import com.xennmap.domain.model.DepthResult
+import com.xennmap.domain.model.TerrainType
 import com.xennmap.domain.repository.BathymetryRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -15,9 +17,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Provides the coastline asset and the generated sample bathymetry.
- * Swap [BathymetryRepository] for a real contour dataset (GEBCO/NAMRIA) later —
- * the layer pipeline consumes GeoJSON strings, so only this class changes.
+ * Sample bathymetry repository (kept for debug/test builds).
+ * Production uses RealBathymetryRepositoryImpl with real GEBCO data.
  */
 @Singleton
 class BathymetryRepositoryImpl @Inject constructor(
@@ -61,7 +62,30 @@ class BathymetryRepositoryImpl @Inject constructor(
             SampleBathymetryGenerator.depthAtPosition(latitude, longitude, coastPolys())
         }
 
-    override suspend fun classifyAt(latitude: Double, longitude: Double): com.xennmap.domain.model.TerrainType =
+    override suspend fun depthResultAt(latitude: Double, longitude: Double): DepthResult = withContext(Dispatchers.Default) {
+        val depth = SampleBathymetryGenerator.depthAtPosition(latitude, longitude, coastPolys())
+        val terrain = SampleBathymetryGenerator.classifyPosition(latitude, longitude, coastPolys())
+        return@withContext when {
+            depth == null && terrain == TerrainType.LAND -> DepthResult.Land(0.0)
+            depth == null -> DepthResult.NoCoverage("Outside sample coverage")
+            else -> DepthResult.Success(
+                meters = depth!!,
+                terrain = terrain,
+                metadata = com.xennmap.domain.model.BathymetryMetadata(
+                    source = dataset.source,
+                    version = dataset.vintage,
+                    resolutionArcSec = 15,
+                    resolutionMeters = 450,
+                    verticalDatum = "MSL",
+                    horizontalDatum = "WGS84",
+                    attribution = "Demo data — not authoritative",
+                    tileSource = "sample",
+                )
+            )
+        }
+    }
+
+    override suspend fun classifyAt(latitude: Double, longitude: Double): TerrainType =
         withContext(Dispatchers.Default) {
             SampleBathymetryGenerator.classifyPosition(latitude, longitude, coastPolys())
         }

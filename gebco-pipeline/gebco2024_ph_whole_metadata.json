@@ -1,0 +1,57 @@
+{
+  "id": "gebco2024_ph_whole",
+  "display_name": "Philippines (Whole Country)",
+  "description": "GEBCO 2024 bathymetry for entire Philippine archipelago",
+  "source": "GEBCO 2024 Grid",
+  "version": "202407",
+  "resolution_arcsec": 15,
+  "resolution_meters": 450,
+  "vertical_datum": "MSL",
+  "horizontal_datum": "WGS84",
+  "attribution": "GEBCO Compilation Group (2024) GEBCO 2024 Grid (doi:10.5285/1c44ce99-0a0d-5f4f-e063-7086abc0ea0f)",
+  "license": "Public Domain (GEBCO conditions of use apply \u2014 see https://www.gebco.net/)",
+  "coverage": {
+    "south": 4.0,
+    "west": 116.0,
+    "north": 21.5,
+    "east": 127.0
+  },
+  "warning": "Not for navigation \u2014 use official nautical charts. Charted depth from GEBCO 2024 Grid (15 arc-sec resolution, ~450m at Philippine latitudes). Vertical datum: MSL. Not for navigation \u2014 use official nautical charts.",
+  "mbtiles": {
+    "file": "gebco2024_ph_whole.mbtiles",
+    "size_bytes": 109600768,
+    "sha256": "b8d992af074f5d2a3feadb5bec261df93e9073e285dce412ac9b0005d58dc47b",
+    "zoom_levels": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "total_tiles": 138130
+  },
+  "mbtiles_zip": {
+    "file": "gebco2024_ph_whole_mbtiles.zip",
+    "size_bytes": 7013162,
+    "sha256": "44e10f4e96f2fb5a104457f51276b837af48ee84c95a616ee55463cdef0c23f9"
+  },
+  "binary_grid_zip": {
+    "file": "gebco2024_ph_whole_grid.zip",
+    "size_bytes": 64598,
+    "sha256": "496a49d3444c99c319baf38db0c9a7f9bb223c97f089b85546bc2c6e567bffc9"
+  },
+  "binary_grid": {
+    "tile_count": 198,
+    "tile_size_bytes": 115200,
+    "total_uncompressed_bytes": 22809600
+  }
+}

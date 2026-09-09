@@ -3,7 +3,6 @@ package com.xennmap.presentation.map
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.content.res.Resources
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -28,7 +27,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -45,8 +43,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xennmap.domain.model.ChartDepth
 import com.xennmap.domain.model.ThemeMode
-import com.xennmap.presentation.common.AreaPickerSession
-import com.xennmap.presentation.common.DownloadBounds
 import com.xennmap.presentation.common.MapCommand
 import com.xennmap.ui.components.ConfirmDialog
 import com.xennmap.ui.components.GlassPanel
@@ -54,6 +50,7 @@ import com.xennmap.ui.components.PlaceEditorSheet
 import com.xennmap.ui.theme.XennTheme
 import com.xennmap.ui.theme.XennThemeExtended
 import com.xennmap.utils.GeoUtils
+import com.xennmap.utils.FormatUtils
 import kotlin.math.hypot
 import kotlinx.coroutines.launch
 
@@ -67,7 +64,6 @@ fun MapScreen(
 ) {
     val ui by vm.uiState.collectAsStateWithLifecycle()
     val trackPoints by vm.trackPoints.collectAsStateWithLifecycle()
-    val areaPicker by vm.areaPickerState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
@@ -162,17 +158,7 @@ fun MapScreen(
                     if (fix != null) engine.flyTo(fix.latitude, fix.longitude, 14.5)
                 }
                 is MapCommand.ShowTrack -> vm.showTrack(command.trackId)
-                is MapCommand.ShowPresetArea -> {
-                    vm.showPresetOutline(
-                        command.preset.south, command.preset.west,
-                        command.preset.north, command.preset.east,
-                        command.preset.name,
-                    )
-                    engine.fitBounds(
-                        command.preset.south, command.preset.west,
-                        command.preset.north, command.preset.east,
-                    )
-                }
+                else -> Unit
             }
         }
     }
@@ -182,7 +168,6 @@ fun MapScreen(
             MapRenderState(
                 dark = darkMap,
                 coastlineJson = ui.coastline,
-                bathymetry = ui.bathymetry,
                 layers = ui.settings.layers,
                 places = ui.places,
                 selectedPlaceId = ui.selectedPlace?.id,
@@ -192,20 +177,9 @@ fun MapScreen(
                 navActive = ui.navState.isActive,
                 selectedPoint = ui.selectedPoint?.let { it.latitude to it.longitude },
                 presetOutline = ui.presetOutline,
+                bathymetryRegionId = if (ui.depthDownloaded) "gebco2024_ph_whole" else null,
             )
         )
-    }
-
-    var fittedPickerBounds by remember { mutableStateOf(false) }
-    LaunchedEffect(areaPicker) {
-        fittedPickerBounds = false
-    }
-    LaunchedEffect(areaPicker?.initialBounds) {
-        val bounds = areaPicker?.initialBounds
-        if (bounds != null && !fittedPickerBounds) {
-            fittedPickerBounds = true
-            engine.fitBounds(bounds.south, bounds.west, bounds.north, bounds.east)
-        }
     }
 
     LaunchedEffect(ui.message) {
@@ -218,17 +192,6 @@ fun MapScreen(
     // ------------------------------------------------------------------ layout
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(factory = { engine.mapView }, modifier = Modifier.fillMaxSize())
-
-        if (areaPicker != null) {
-            // Fixed screen-space frame: the user pans/zooms the map inside it.
-            FrameReticle(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .fillMaxWidth()
-                    .padding(horizontal = 40.dp)
-                    .fillMaxHeight(0.62f),
-            )
-        }
 
         if (!ui.hasLocationPermission) {
             PermissionCard(
@@ -310,18 +273,6 @@ fun MapScreen(
                     onMarkLocation = { vm.openMarkSheet() },
                 )
             }
-        }
-
-        if (areaPicker != null) {
-            AreaPickerOverlay(
-                bounds = viewportBounds(ui.camera, context),
-                onCancel = { vm.cancelAreaPicker() },
-                onDownload = { vm.confirmAreaDownload(it) },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            )
         }
 
         SnackbarHost(
@@ -429,23 +380,6 @@ private fun PermissionCard(
             Button(onClick = onEnable) { Text("Enable location") }
         }
     }
-}
-
-private data class ViewportQuad(val south: Double, val west: Double, val north: Double, val east: Double)
-
-private fun viewportBounds(camera: MapCamera, context: Context): DownloadBounds {
-    val metrics = Resources.getSystem().displayMetrics
-    val mpp = GeoUtils.metersPerPixel(camera.latitude, camera.zoom).coerceAtLeast(0.5)
-    val halfWM = metrics.widthPixels / 2.0 * mpp
-    val halfHM = metrics.heightPixels / 2.0 * mpp
-    val dLat = halfHM / 111_320.0
-    val dLng = halfWM / (111_320.0 * cos(Math.toRadians(camera.latitude)).coerceAtLeast(0.05))
-    return DownloadBounds(
-        south = (camera.latitude - dLat).coerceIn(-85.0, 85.0),
-        west = camera.longitude - dLng,
-        north = (camera.latitude + dLat).coerceIn(-85.0, 85.0),
-        east = camera.longitude + dLng,
-    )
 }
 
 private fun hasLocationPermission(context: Context): Boolean =
