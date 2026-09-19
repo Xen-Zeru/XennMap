@@ -27,6 +27,7 @@ data class MapCamera(
 class MapEngine(
     context: Context,
     private val onCameraChanged: (MapCamera) -> Unit,
+    private val styleUrl: String,
 ) {
 
     val mapView: MapView = MapView(context)
@@ -115,7 +116,7 @@ class MapEngine(
         // starts — drop it so pending render updates never touch it.
         renderer.invalidateStyle()
         mapLibre?.setStyle(
-            Style.Builder().fromJson(baseStyleJson(dark)),
+            Style.Builder().fromUrl(styleUrl),
             object : Style.OnStyleLoaded {
                 override fun onStyleLoaded(style: Style) {
                     renderer.onStyleLoaded(style, dark)
@@ -188,19 +189,5 @@ class MapEngine(
 
     fun onDestroy() {
         mapView.onDestroy()
-    }
-
-    companion object {
-        fun baseStyleJson(dark: Boolean): String {
-            // OSM Liberty style - a clean, open-source world map style
-            // This provides countries, cities, roads, labels, coastlines, etc.
-            val styleUrl = if (dark) {
-                "https://demotiles.maplibre.org/style/osm-liberty-dark.json"
-            } else {
-                "https://demotiles.maplibre.org/style/osm-liberty.json"
-            }
-            // Use local style bundle as fallback; for production, bundle the style JSON
-            return """{"version":8,"name":"XennMap","sources":{"osm":{"type":"vector","url":"https://demotiles.maplibre.org/tiles/osm.json","attribution":"© OpenStreetMap contributors"}},"layers":[{"id":"background","type":"background","paint":{"background-color":"${if (dark) "#06131D" else "#A9D2E8"}"}}]}"""
-        }
     }
 }

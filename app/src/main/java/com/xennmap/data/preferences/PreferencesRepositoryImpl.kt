@@ -44,7 +44,6 @@ class PreferencesRepositoryImpl @Inject constructor(
         val TRACKING_INTERVAL = intPreferencesKey("tracking_interval_sec")
         val TILE_STYLE_URL = stringPreferencesKey("tile_style_url")
         val BATHYMETRY = booleanPreferencesKey("layer_bathymetry")
-        val CONTOURS = booleanPreferencesKey("layer_contours")
         val DEPTH_LABELS = booleanPreferencesKey("layer_depth_labels")
         val SAVED_PLACES = booleanPreferencesKey("layer_saved_places")
         val CAM_LAT = doublePreferencesKey("cam_lat")
@@ -64,7 +63,6 @@ class PreferencesRepositoryImpl @Inject constructor(
                 ?: SpeedUnit.KNOTS,
             layers = MapLayers(
                 bathymetryEnabled = p[Keys.BATHYMETRY] ?: true,
-                contoursEnabled = p[Keys.CONTOURS] ?: true,
                 depthLabelsEnabled = p[Keys.DEPTH_LABELS] ?: false,
                 savedPlacesVisible = p[Keys.SAVED_PLACES] ?: true,
             ),
@@ -99,7 +97,6 @@ class PreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setLayers(layers: MapLayers) = edit {
         it[Keys.BATHYMETRY] = layers.bathymetryEnabled
-        it[Keys.CONTOURS] = layers.contoursEnabled
         it[Keys.DEPTH_LABELS] = layers.depthLabelsEnabled
         it[Keys.SAVED_PLACES] = layers.savedPlacesVisible
     }

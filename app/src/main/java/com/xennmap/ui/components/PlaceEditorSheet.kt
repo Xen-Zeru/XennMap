@@ -77,7 +77,7 @@ fun PlaceEditorSheet(
             )
             Text(
                 text = estimatedDepth?.let {
-                    "Estimated depth: " + FormatUtils.depth(it.meters, depthUnit) +
+                    "Charted Depth: " + FormatUtils.depth(it.meters, depthUnit) +
                         if (it.downloaded) " (downloaded area)" else " (charted)"
                 } ?: "Depth unavailable at this point",
                 style = MaterialTheme.typography.bodySmall,

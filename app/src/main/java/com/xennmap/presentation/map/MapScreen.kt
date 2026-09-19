@@ -75,7 +75,7 @@ fun MapScreen(
         ThemeMode.LIGHT -> false
     }
 
-    val engine = remember { MapEngine(context) { camera -> vm.onCameraChanged(camera) } }
+    val engine = remember { MapEngine(context, { camera -> vm.onCameraChanged(camera) }, ui.settings.tileStyleUrl) }
 
     // ------------------------------------------------------------- lifecycle
     DisposableEffect(lifecycleOwner) {
@@ -291,7 +291,6 @@ fun MapScreen(
             bathymetry = ui.bathymetry,
             dark = darkMap,
             onToggleBathymetry = { vm.setLayers(ui.settings.layers.copy(bathymetryEnabled = it)) },
-            onToggleContours = { vm.setLayers(ui.settings.layers.copy(contoursEnabled = it)) },
             onToggleDepthLabels = { vm.setLayers(ui.settings.layers.copy(depthLabelsEnabled = it)) },
             onTogglePlaces = { vm.setLayers(ui.settings.layers.copy(savedPlacesVisible = it)) },
             onDismiss = { vm.setLayersSheetVisible(false) },

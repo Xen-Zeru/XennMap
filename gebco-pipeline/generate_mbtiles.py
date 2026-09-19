@@ -46,8 +46,12 @@ BATHY_RAMP = np.array([
     [0x07, 0x18, 0x23, 0xFF],  # 200+ m
 ], dtype=np.uint8)
 
-# Depth band breaks (meters, negative = depth)
-BAND_BREAKS = [-5, -10, -20, -50, -100, -200, -11000]
+# Depth band breaks (positive meters, ascending for searchsorted)
+# 0-5m, 5-10m, 10-20m, 20-50m, 50-100m, 100-200m, 200m+
+BAND_BREAKS_POSITIVE = np.array(
+    [5, 10, 20, 50, 100, 200, 11000],
+    dtype=np.int16
+)
 
 # Land color (transparent for land - let base map show through)
 # Using transparent black
@@ -91,7 +95,12 @@ def tile_to_bounds(x, y, zoom):
 
 
 def generate_tile_image(elev, ds, x, y, zoom):
-    """Generate a 256x256 RGB image for the tile with baked bathymetry color ramp."""
+    """Generate a 256x256 RGBA image for the tile with baked bathymetry color ramp.
+    
+    Only pixels whose geographic coordinates fall inside the source NetCDF
+    latitude/longitude bounds may use sampled GEBCO values. All other pixels
+    (outside coverage, land, NoData) are fully transparent.
+    """
     lat_south, lon_west, lat_north, lon_east = tile_to_bounds(x, y, zoom)
     
     # Get coordinate arrays from dataset
@@ -105,6 +114,11 @@ def generate_tile_image(elev, ds, x, y, zoom):
     lats = lat_north - py_indices / TILE_SIZE * (lat_north - lat_south)  # (256,)
     lons = lon_west + px_indices / TILE_SIZE * (lon_east - lon_west)   # (256,)
     
+    # Geographic bounds mask: only pixels inside source data bounds are valid
+    lat_in_bounds = (lats >= lat_array.min()) & (lats <= lat_array.max())
+    lon_in_bounds = (lons >= lon_array.min()) & (lons <= lon_array.max())
+    in_bounds_2d = lat_in_bounds[:, None] & lon_in_bounds[None, :]
+    
     # Find nearest indices in coordinate arrays for each lat/lon
     lat_idx_1d = np.abs(lat_array[:, None] - lats[None, :]).argmin(axis=0)  # (256,)
     lon_idx_1d = np.abs(lon_array[:, None] - lons[None, :]).argmin(axis=0)  # (256,)
@@ -117,7 +131,7 @@ def generate_tile_image(elev, ds, x, y, zoom):
     lat_idx_grid, lon_idx_grid = np.meshgrid(lat_idx_1d, lon_idx_1d, indexing='ij')
     tile_data = elev[lat_idx_grid, lon_idx_grid]
     
-    # Create RGBA output
+    # Create RGBA output (initialized to transparent)
     rgba = np.zeros((TILE_SIZE, TILE_SIZE, 4), dtype=np.uint8)
     
     # Classify each pixel
@@ -125,27 +139,30 @@ def generate_tile_image(elev, ds, x, y, zoom):
     land_mask = (tile_data != NO_DATA) & (tile_data >= 0)
     water_mask = (tile_data != NO_DATA) & (tile_data < 0)
     
-    # NoData -> transparent
-    rgba[nodata_mask] = NODATA_COLOR
+    # Combine with geographic bounds mask
+    # Valid water = in geographic bounds AND negative elevation (water)
+    valid_water_mask = water_mask & in_bounds_2d
     
-    # Land -> transparent (let base map show through)
-    rgba[land_mask] = LAND_COLOR
+    # NoData -> transparent (already zero)
+    # Land -> transparent (already zero)
+    # Outside geographic bounds -> transparent (already zero)
     
     # Water -> apply bathymetry color ramp based on depth
-    if np.any(water_mask):
-        water_depths = tile_data[water_mask]  # negative values
+    if np.any(valid_water_mask):
+        water_depths = tile_data[valid_water_mask]  # negative values
+        # Convert to positive depths for searchsorted with ascending breaks
+        water_depths_positive = -water_depths
         # Assign band index based on depth
-        # BAND_BREAKS: [-5, -10, -20, -50, -100, -200, -11000]
-        # depth >= -5 -> band 0, depth >= -10 -> band 1, etc.
-        band_indices = np.searchsorted(BAND_BREAKS, water_depths, side='right')
+        # BAND_BREAKS_POSITIVE: [5, 10, 20, 50, 100, 200, 11000]
+        # depth < 5m -> band 0, depth < 10m -> band 1, etc.
+        band_indices = np.searchsorted(BAND_BREAKS_POSITIVE, water_depths_positive, side='right')
         band_indices = np.clip(band_indices, 0, len(BATHY_RAMP) - 1)
         
         # Apply colors
         water_colors = BATHY_RAMP[band_indices]
-        rgba[water_mask] = water_colors
+        rgba[valid_water_mask] = water_colors
     
-    # Convert to RGB PNG (drop alpha for smaller tiles, or keep RGBA)
-    # Use RGBA to preserve transparency for land/NoData
+    # Convert to RGBA PNG to preserve transparency
     img = Image.fromarray(rgba, mode='RGBA')
     buf = io.BytesIO()
     img.save(buf, format='PNG', optimize=True)

@@ -136,6 +136,7 @@ class MapRenderer(private val context: Context) {
                 )
             }
         )
+
         // Download-area preview outline (amber, high visibility over any theme).
         style.addLayer(
             FillLayer(L_PRESET_FILL, SRC_PRESET).apply {
@@ -253,15 +254,20 @@ class MapRenderer(private val context: Context) {
     /** Add real bathymetry RasterSource from downloaded MBTiles. */
     private fun addRealBathymetrySource(style: org.maplibre.android.maps.Style, regionId: String) {
         val path = File(context.filesDir, "bathymetry/mbtiles/$regionId.mbtiles")
-        if (!path.exists()) return
+        if (!path.exists()) {
+            android.util.Log.w("XennMap", "GEBCO MBTiles not found at: ${path.absolutePath}")
+            return
+        }
 
-        // Replace the placeholder source with the real RasterSource
-        runCatching {
-            val oldSource = style.getSource(SRC_BATHY_RASTER)
-            oldSource?.let { style.removeSource(it.id) }
+        // Check if source already exists and is valid
+        val existingSource = style.getSource(SRC_BATHY_RASTER)
+        if (existingSource != null) {
+            android.util.Log.i("XennMap", "GEBCO RasterSource already exists, skipping")
+            return
         }
 
         val uri = "mbtiles://${path.absolutePath}"
+        android.util.Log.i("XennMap", "Adding GEBCO RasterSource: $uri")
         val rasterSource = RasterSource(SRC_BATHY_RASTER, uri, 256)
         style.addSource(rasterSource)
 
@@ -269,12 +275,13 @@ class MapRenderer(private val context: Context) {
         if (style.getLayer(L_BATHY_RASTER) == null) {
             val rasterLayer = RasterLayer(L_BATHY_RASTER, SRC_BATHY_RASTER).apply {
                 setProperties(
-                    PropertyFactory.rasterOpacity(0.85f),
+                    PropertyFactory.rasterOpacity(0.55f),
                 )
                 minZoom = 0f
                 maxZoom = 13f
             }
             style.addLayer(rasterLayer)
+            android.util.Log.i("XennMap", "GEBCO RasterLayer added successfully")
         }
     }
 

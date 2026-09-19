@@ -3,6 +3,7 @@ package com.xennmap.presentation.map
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xennmap.data.connectivity.ConnectivityObserver
+import com.xennmap.data.maps.bathymetry.source.BathymetryAssetProvisioner
 import com.xennmap.data.navigation.NavigationSession
 import com.xennmap.data.tracking.TrackingController
 import com.xennmap.domain.model.AppSettings
@@ -59,6 +60,7 @@ class MapViewModel @Inject constructor(
     private val locationRepository: LocationRepository,
     private val preferencesRepository: PreferencesRepository,
     private val bathymetryRepository: BathymetryRepository,
+    private val bathymetryAssetProvisioner: BathymetryAssetProvisioner,
     private val connectivityObserver: ConnectivityObserver,
     private val navigationSession: NavigationSession,
     private val trackingController: TrackingController,
@@ -66,6 +68,10 @@ class MapViewModel @Inject constructor(
     private val planNavigation: PlanNavigationUseCase,
     private val getDepthAtPosition: GetDepthAtPositionUseCase,
 ) : ViewModel() {
+
+    init {
+        android.util.Log.i("XennMap", "MapViewModel created")
+    }
 
     /** Framing session for the custom download area (drives the map overlay). */
     val areaPickerState: StateFlow<AreaPickerState?> = AreaPickerSession().state
@@ -147,6 +153,14 @@ class MapViewModel @Inject constructor(
     private var cameraSaveJob: Job? = null
 
     init {
+        // Observe GEBCO asset provisioning state
+        viewModelScope.launch {
+            bathymetryAssetProvisioner.isProvisioned.collect { provisioned ->
+                android.util.Log.i("XennMap", "GEBCO assets provisioned state changed: $provisioned")
+                _uiState.update { it.copy(depthDownloaded = provisioned) }
+            }
+        }
+
         viewModelScope.launch {
             combine(
                 preferencesRepository.settings,
@@ -207,8 +221,8 @@ class MapViewModel @Inject constructor(
                 if (gps.fix != null && now - lastSampleAt >= DEPTH_SAMPLE_INTERVAL_MS) {
                     lastSampleAt = now
                     val depth = runCatching { getDepthAtPosition(gps.fix) }.getOrNull()
-                    val downloaded = isInsidePhilippinesCoverage(gps.fix.latitude, gps.fix.longitude)
-                    _uiState.update { it.copy(depthMeters = depth, depthDownloaded = downloaded) }
+                    // depthDownloaded now reflects actual asset availability, not GPS location
+                    _uiState.update { it.copy(depthMeters = depth) }
                 }
             }
         }
@@ -410,7 +424,8 @@ class MapViewModel @Inject constructor(
                 }
             }
 
-            val downloaded = isInsidePhilippinesCoverage(latitude, longitude)
+            // Use actual asset availability instead of GPS location
+            val downloaded = _uiState.value.depthDownloaded
             _uiState.update { state ->
                 val point = state.selectedPoint
                 if (point != null && point.latitude == latitude && point.longitude == longitude) {

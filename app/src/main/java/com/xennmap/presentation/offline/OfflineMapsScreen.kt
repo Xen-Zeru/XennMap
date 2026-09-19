@@ -90,7 +90,7 @@ fun OfflineMapsScreen(
             }
         }
         Text(
-            "Downloaded areas work with zero signal at sea.",
+            "GEBCO chart data works with zero signal at sea.",
             style = MaterialTheme.typography.bodyMedium,
             color = XennThemeExtended.colors.textSecondary,
         )
@@ -142,7 +142,7 @@ fun OfflineMapsScreen(
         }
         Spacer(Modifier.height(14.dp))
 
-        Text("Downloaded areas", style = MaterialTheme.typography.titleMedium)
+        Text("GEBCO chart data", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
 
         if (ui.regions.isEmpty()) {

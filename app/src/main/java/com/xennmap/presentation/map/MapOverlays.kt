@@ -324,7 +324,7 @@ fun LocationCard(
                         Column {
                             Text("Depth", style = MaterialTheme.typography.labelMedium)
                             Text(
-                                if (depthDownloaded) "Downloaded area" else "Chart data",
+                                if (depthDownloaded) "GEBCO chart data" else "Chart data",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = XennThemeExtended.colors.textSecondary,
                             )
@@ -416,13 +416,13 @@ fun SelectedPointSheet(
                             modifier = Modifier.size(20.dp),
                         )
                         Text(
-                            "Estimated Depth: ${FormatUtils.depth(point.depthMeters, depthUnit)}",
+                            "Charted Depth: ${FormatUtils.depth(point.depthMeters, depthUnit)}",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.secondary,
                         )
                     }
                     Text(
-                        if (point.inDownloaded) "Downloaded area — not a live measurement"
+                        if (point.inDownloaded) "GEBCO chart data — not a live measurement"
                         else "Charted depth — not a live measurement",
                         style = MaterialTheme.typography.bodySmall,
                         color = XennThemeExtended.colors.textSecondary,
@@ -710,7 +710,6 @@ fun LayersSheet(
     bathymetry: BathymetryData?,
     dark: Boolean,
     onToggleBathymetry: (Boolean) -> Unit,
-    onToggleContours: (Boolean) -> Unit,
     onToggleDepthLabels: (Boolean) -> Unit,
     onTogglePlaces: (Boolean) -> Unit,
     onDismiss: () -> Unit,
@@ -727,7 +726,6 @@ fun LayersSheet(
             Text("Map layers", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(4.dp))
             LayerToggle("Bathymetry", "Depth zones from available chart data", layers.bathymetryEnabled, onToggleBathymetry)
-            LayerToggle("Depth contours", "Lines between depth zones", layers.contoursEnabled && layers.bathymetryEnabled, onToggleContours, enabled = layers.bathymetryEnabled)
             LayerToggle("Depth labels", "Small depth markers on the water", layers.depthLabelsEnabled && layers.bathymetryEnabled, onToggleDepthLabels, enabled = layers.bathymetryEnabled)
             LayerToggle("Saved places", "Your pins, docks and fishing spots", layers.savedPlacesVisible, onTogglePlaces)
 

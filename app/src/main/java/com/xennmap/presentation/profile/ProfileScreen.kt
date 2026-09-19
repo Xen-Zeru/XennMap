@@ -46,7 +46,7 @@ import com.xennmap.domain.model.SpeedUnit
 import com.xennmap.domain.model.ThemeMode
 import com.xennmap.ui.components.SectionHeader
 import com.xennmap.ui.theme.XennThemeExtended
-import com.xennmap.utils.FormatUtils
+
 
 @Composable
 fun ProfileScreen(
@@ -135,11 +135,8 @@ fun ProfileScreen(
         SectionHeader("MAP")
         SettingsCard {
             val layers = ui.settings.layers
-            ToggleRow("Bathymetry", "Depth zones and contours", layers.bathymetryEnabled) {
+            ToggleRow("Bathymetry", "Depth zones from available chart data", layers.bathymetryEnabled) {
                 vm.setLayers(layers.copy(bathymetryEnabled = it))
-            }
-            ToggleRow("Depth contours", "Lines between depth zones", layers.contoursEnabled) {
-                vm.setLayers(layers.copy(contoursEnabled = it))
             }
             ToggleRow("Depth labels", "Small depth markers on the water", layers.depthLabelsEnabled) {
                 vm.setLayers(layers.copy(depthLabelsEnabled = it))
@@ -210,45 +207,7 @@ fun ProfileScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = XennThemeExtended.colors.textSecondary,
                 )
-            }
-        }
-
-        // -------------------------------------------------------------- storage
-        SectionHeader("STORAGE")
-        SettingsCard {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Rounded.Download,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "${FormatUtils.bytes(ui.offlineBytes)} used by offline maps",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        "${FormatUtils.bytes(ui.cacheBytes)} temporary cache",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = XennThemeExtended.colors.textSecondary,
-                    )
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onOpenOffline) { Text("Offline Maps") }
-                OutlinedButton(onClick = { vm.clearCache() }) {
-                    Icon(
-                        Icons.Rounded.Delete,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text("Clear cached data")
-                }
-            }
+}
         }
 
         // ---------------------------------------------------------------- about

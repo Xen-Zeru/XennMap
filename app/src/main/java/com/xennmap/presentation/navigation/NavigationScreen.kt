@@ -209,8 +209,8 @@ private fun DestinationCard(
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = depthMeters?.let { "Estimated depth: ${FormatUtils.depth(it, com.xennmap.domain.model.DepthUnit.METERS)} (chart)" }
-                        ?: "Estimated depth: unavailable (no chart data)",
+                    text = depthMeters?.let { "Charted Depth: ${FormatUtils.depth(it, com.xennmap.domain.model.DepthUnit.METERS)} (chart)" }
+                        ?: "Charted Depth: unavailable (no chart data)",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (depthMeters != null) MaterialTheme.colorScheme.secondary else XennThemeExtended.colors.textSecondary,
                 )
@@ -275,12 +275,12 @@ private fun ActiveSessionCard(
                 )
             }
             Spacer(Modifier.height(6.dp))
-            Text(
-                text = destinationDepth?.let { "Estimated depth at destination: ${FormatUtils.depth(it, com.xennmap.domain.model.DepthUnit.METERS)} (chart)" }
-                    ?: "Estimated depth at destination: unavailable (no chart data)",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (destinationDepth != null) MaterialTheme.colorScheme.secondary else XennThemeExtended.colors.textSecondary,
-            )
+Text(
+                text = destinationDepth?.let { "Charted Depth at destination: ${FormatUtils.depth(it, com.xennmap.domain.model.DepthUnit.METERS)} (chart)" }
+                    ?: "Charted Depth at destination: unavailable (no chart data)",
+            style = MaterialTheme.typography.bodySmall,
+            color = if (destinationDepth != null) MaterialTheme.colorScheme.secondary else XennThemeExtended.colors.textSecondary,
+        )
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(onClick = { if (session.isActive) viewModel.pause() else viewModel.resume() }, modifier = Modifier.weight(1f)) {

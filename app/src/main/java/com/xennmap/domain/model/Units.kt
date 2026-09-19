@@ -30,7 +30,6 @@ enum class LocationAccuracyMode(val label: String) {
 /** Toggles for optional map layers. */
 data class MapLayers(
     val bathymetryEnabled: Boolean = true,
-    val contoursEnabled: Boolean = true,
     val depthLabelsEnabled: Boolean = false,
     val savedPlacesVisible: Boolean = true,
 )

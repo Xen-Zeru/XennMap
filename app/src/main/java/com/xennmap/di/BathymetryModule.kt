@@ -2,6 +2,7 @@ package com.xennmap.di
 
 import android.content.Context
 import com.xennmap.data.maps.bathymetry.download.BathymetryDownloadController
+import com.xennmap.data.maps.bathymetry.source.BathymetryAssetProvisioner
 import com.xennmap.data.maps.bathymetry.source.BathymetryBinaryGridReader
 import com.xennmap.data.maps.bathymetry.source.BathymetryMbtilesProvider
 import com.xennmap.data.maps.bathymetry.source.BathymetryTileCache
@@ -36,6 +37,12 @@ object BathymetryModule {
     fun provideBathymetryMbtilesProvider(
         @ApplicationContext context: Context,
     ): BathymetryMbtilesProvider = BathymetryMbtilesProvider(context)
+
+    @Provides
+    @Singleton
+    fun provideBathymetryAssetProvisioner(
+        @ApplicationContext context: Context,
+    ): BathymetryAssetProvisioner = BathymetryAssetProvisioner(context)
 
     @Provides
     @Singleton
