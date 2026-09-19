@@ -14,3 +14,7 @@ local.properties
 !debug.keystore
 keystore.properties
 *.jks
+
+# GEBCO MBTiles (large generated files, not tracked in repo)
+# These are needed locally for APK builds but must not be committed.
+*.mbtiles
